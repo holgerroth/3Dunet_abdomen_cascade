@@ -18,6 +18,10 @@ http://caffe.berkeleyvision.org/installation.html#prequequisites
 
 To run the segmentation algorithm on a new case use:
 python run_full_cascade_deploy.py
+Note, please update the paths in run_full_cascade_deploy.py
+
+You might have to add a -2000 offset to
+win_min/max1/2 in deploy_cascade.py if your images are in Hounsfield units.
 
 For training, please follow the 3D U-Net instruction.
 prepare_data.py can be useful for converting nifti images and label images to h5 containers which can be read by caffe.
