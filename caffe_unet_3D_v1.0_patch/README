@@ -1,0 +1,155 @@
+3D U-Net implementation for caffe
+---------------------------------
+This patch implements the layers for 2D and 3D U-Net including the value
+augmentation and random elastic deformation [1,2]. If you use this code, please
+cite at least [1] and/or [2]. Although the software does not require a GPU (i.e. can
+be run on the CPU only), we strongly recommend an NVIDIA GPU with compute
+capability >= 3.0. Installation is supported for Linux only. See the
+accompanying LICENSE file for copyright notice.
+
+Check http://lmb.informatik.uni-freiburg.de/resources/opensource/unet.en.html
+for updates.
+
+* Setup
+Installation is identical to the installation of BVLC/caffe. See
+http://caffe.berkeleyvision.org/installation.html for further information.
+The extensions required for the U-Net are provided as a patch to a certain
+BVLC/caffe snapshot and can be obtained as follows:
+
+# ---------------------------------------------------------------------------- #
+# open terminal and enter following commands
+# save caffe_unet_3D_v1.0.patch in current working directory
+git clone https://github.com/BVLC/caffe.git
+cd caffe
+git checkout 8c66fa5f3c04e -b unet_patch
+git cherry-pick 458928a # typo in installation.md
+git cherry-pick b43c8e4  # CuDNN 5 support
+git apply ../caffe_unet_3D_v1.0.patch # apply patch
+git add .
+git commit -m"U-Net 3D merged to BVLC/caffe 8c66fa5f3c04e"
+# ---------------------------------------------------------------------------- #
+
+* Usage
+The principle use is analogous to the original caffe. We modified layers to
+support training and inference for 3D U-Nets. The modifications include two
+augmentation layers used in [1] and [2]. See examples published on
+http://lmb.informatik.uni-freiburg.de/resources/opensource/unet.en.html
+for a starting point and 'src/caffe/proto/caffe.proto' for available
+options. The modified/added layers and a description are listed below.
+
+* Modified layers
+Below listed modifications extend the functionality of existing layers.
+The layers remain compatible with the original implementation and have
+no additional parameters except the extension to ND.
+- ND support for CuDNN engine in 'Convolution' layer
+- CuDNN engine for layer 'Deconvolution'
+- support for ND pooling in 'Pooling' layer
+- automatic network reshaping in 'HDF5Data' layer
+- output of selected blobs to individual files in every iteration by 'HDF5Output'
+  layer
+- automatic cropping of central region in 'Concat' layer
+
+* New layers
+- 'ValueAugmentation' layer
+  Re-maps the intensity values of each channel. All values below zero
+  will be mapped to the value drawn from a uniform distribution between
+  black_from and black_to. All values above one will be mapped to
+  the value drawn from a uniform distribution between white_from and  white_to.
+  The mapping function that re-maps the in input values between zero and one is
+  smooth and has slopes between slope_min and slope_max.
+  Parameters:
+    black_from   minimum value that zero is mapped to
+    black_to     maximum value that zero is mapped to
+    white_from   minimum value that one is mapped to
+    white_to     maximum value that one is mapped to
+    slope_min    minimum slope
+    slope_max    maximum slope
+    lut_size     number of elements in lookup table
+    n_control_point_insertions   number of control point insertions, i.e.
+                                 0 -> two control points (black and white)
+				 1 -> three control points
+				 2 -> five control points
+				 3 -> nine control points
+				 ...
+  Example:
+  layer { type:   'ValueAugmentation'
+          name:   'augm_data-d0a'
+	  bottom: 'd0a'
+	  top:    'd0a'
+	  value_augmentation_param {
+	    black_from: -0.02 black_to:  0.02
+	    slope_min:   0.70 slope_max: 1.30
+	    white_from:  0.90 white_to:  1.10
+	    n_control_point_insertions: 3     }
+	    include: { phase: TRAIN } }
+
+- 'CreateDeformation' and 'ApplyDeformation' layers
+  Creates and applies random elastic deformations. The location of the
+  extracted blob is either randomly drawn within the input blob, within
+  a specified region, or based on the probability density specified in an
+  additional blob.
+  Parameters:
+  batch_size     batch size
+  nx,ny,nz       output shape
+  ncomponents    2 for images (2D), 3 for volumes (3D)
+  random_elastic_grid_spacing     grid spacing
+                                  larger results in smoother deformations
+  random_elastic_deform_magnitude magnitude of deformation drawn from
+                                  normal distridution
+  random_rotate_from              minimum/maximum rotation angle in degrees
+  random_rotate_to                drawn from uniform distribution
+  random_offset_from              minimum/maximum offset
+  random_mirror_flag              specify which axis should be mirrored
+  extrapolation                   method to determine values otside imput range
+                                  'zero' or 'mirror'
+  interpolation                   interpolation 'linear' or 'nearest'
+ Example:
+ layer { type:   'CreateDeformation'
+         name:   'create_deformation'
+         bottom: 'sample_freq'
+         top:    'def'
+         create_deformation_param {
+ 	 random_offset_range_from_pdf: true
+         nz:  148 ny: 148 nx: 148 ncomponents: 3
+	 random_elastic_grid_spacing     { v: 32 v: 32 v: 32 }    #
+	 random_elastic_deform_magnitude { v:  6 v:  6 v:  6 }    #
+	 random_rotate_from { v:  -15 v: -15 v: -15 }             #
+	 random_rotate_to   { v:   15 v:  15 v:  15 }             #
+	 voxel_relsize_z: 1 }
+         include: { phase: TRAIN } }
+ layer { type:    'ApplyDeformation'
+         name:    'def_data-d0a'
+	 bottom:  'data'
+	 bottom:  'def'
+	 top:     'd0a'
+	 apply_deformation_param  { interpolation: 'linear' extrapolation: 'zero'} }
+  
+- 'ValueTransformation' layer
+  Shift and scales the input blob with fixed values as
+  	y = scale * x + offset.
+  If one parameter is specified, then the same transformation is performed
+  for all channels. Provide as many repeated parameters as there are channels
+  to transform each channel with an individual transformation.
+  Parameters:
+  scale	          scale
+  offset	  offset
+  Example (three channels, offset -0.5 each):
+  layer { type:   'ValueTransformation'
+          name:   'val_trn'
+          bottom: 'd0a' top: 'd0a'
+	  value_transformation_param { offset { v: -0.5 v: -0.5 v: -0.5 } } }
+
+* Authors and their contributions
+Olaf Ronneberger, University of Freiburg, Germany
+'ValueAugmentation', 'CreateDeformation', and 'ApplyDeformation' layers
+modifications 'HDFData', 'HDFOutput', and 'Pooling', and 'Concatenation' layers
+
+Ahmed Abdulkadir, University Medical Center, Freiburg, Germany
+CuDNN engine for 'Deconvolution' layer, ND convolutions with CuDNN engine
+'ValueAugmentation' layer
+
+Thorsten Schmidt, University of Freiburg, Germany
+'ValueTransformation' and 'ValueAugmentation, layer
+
+[1] Ronneberger, O., Fischer, P., & Brox, T. (2015). U-Net: Convolutional Networks for Biomedical Image Segmentation. Miccai, 9351(Chapter 28), 234–241. http://doi.org/10.1007/978-3-319-24574-4_28
+[2] Özgün Çiçek, Ahmed Abdulkadir, S. Lienkamp, Thomas Brox & Olaf Ronneberger. 3D U-Net: Learning Dense Volumetric Segmentation from Sparse Annotation. Medical Image Computing and Computer-Assisted Intervention (MICCAI), Springer, LNCS, 2016
