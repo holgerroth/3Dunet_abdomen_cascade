@@ -5,47 +5,25 @@ Created on 2016
 @author: rothhr
 """
 
-#################################################################33
-######## Torso #######################
-########################################################
-#img_file = '/home/rothhr/Data/Torso/Data/Images/t0001468_series4.nii.gz'
-#label_file = '/home/rothhr/Data/Torso/Data/Labels/T0001468_4.uc_raw.nii.gz'
-#output_root = '/media/rothhr/SSD/Torso/TMP/3dUnet-full_pipline'
-
-#img_file = '/media/rothhr/SSD/CTCompAna/RAW/t0000085_series7.header'
-#label_file = '/media/rothhr/SSD/CTCompAna/RAW/t0000085_7_label_all.raw'
-#output_root = '/media/rothhr/SSD/Torso/TMP/3dUnet-full_pipline_raw_hdr'
-
 ####################### COMMON ###################################
+proto_text = 'models/3dUnet_Visceral_with_BN-test.prototxt'
 ############## Stage 1: down 2: normed ###########################
-proto_text1 = 'models/3dUnet_Abdomen_with_BN-test.prototxt'
-trained_model1 = 'snapshot-Stage1/3dUnet_Abdomen_with_BN_zeromean_iter_200000.caffemodel'
+trained_model1 = 'snapshots-Stage1/3dUnet_Visceral_with_BN_abd-finetune-Stage1_iter_130000.caffemodel'
 ############## Stage 1: down 2: normed ###########################
-proto_text2 = 'models/3dUnet_Abdomen_with_BN-test.prototxt'#'models/3dUnet_Abdomen_with_BN-Stage2-test.prototxt'
-trained_model2 = 'snapshot-Stage2/3dUnet_Abdomen_with_BN_normed-Stage2_iter_115000.caffemodel'
-
-# Stage1
-win_min1=1500 -2000 # HU
-win_max1=2500 -2000
-ZERO_MEAN1=True
-NORM1=False
-# Stage2
-win_min2=0 -2000
-win_max2=5000 -2000 # basically full range
-ZERO_MEAN2=False
-NORM2=True
+trained_model2 = 'snapshots-Stage2/3dUnet_Visceral_with_BN_abd-finetune-Stage2_iter_80000.caffemodel'
+EXTRACT_FEATURES = False
 
 ##############################################################################################################
-############## TEST ON ABDOMEN ACC DATA #####################3
+############## TEST #####################3
 ##############################################################################################################
 IGNORE_VALUE=255
 USE_BODY=True
-FLIP_DATA=None
+FLIP_DATA='Visceral'
 RESAMPLE_DATA = False# [0.6718, 0.6718, 0.501327]
 in_label_search = '.uc_raw.nii.gz'
 in_image_search = '.nii.gz'
 IGNORE_GT = False
-## Visceral on Torso  (ACC online network, Stage 1) #######################################################
+## Visceral  #######################################################
 ZERO_MEAN=False
 NORM=True
 DILATE_MASK_TO_INCLUDE = 5 # number iterations for dilation in Stage2
@@ -53,10 +31,11 @@ RESAMPLE_MASK = False
 DOWNSAMPLE=True
 CROP = False
 SWAP_LABELS = None
+win_min=1500 -2000 # HU
+win_max=2500 -2000 # HU
 dx = 2
 dy = 2
 dz = 2
-EXTRACT_FEATURES = False
 
 ##########
 crop_marginx = 0
@@ -70,7 +49,9 @@ rBody = 2
 
 ######################## FUNCTIONS ###############################
 import sys
-sys.path.insert(0,'caffe_unet_3D_v1.0_patch/caffe/python')
+import os
+sys.path.insert(0,'../caffe_unet_3D_v1.0_patch/caffe/python')
+#sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import caffe
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,10 +61,6 @@ import os
 import nibabel as nib
 from tqdm import tqdm
 import h5py
-#import os
-import sys
-#sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-#from data import recursive_glob, recursive_glob2
 import mori 
 from scipy import ndimage as ndi
 import skimage.morphology
@@ -121,9 +98,7 @@ def read_image(filename,dtype=None):
     return I, spacing
 
 ############ Functions ###################
-def convert_image_and_label_to_h5(image_file,label_file,out_file,\
-                                  mask_file=None,DILATE_MASK_TO_INCLUDE=0,\
-                                  win_min=0,win_max=5000,ZERO_MEAN=False,NORM=True):
+def convert_image_and_label_to_h5(image_file,label_file,out_file,mask_file=None,DILATE_MASK_TO_INCLUDE=0):
     if not os.path.isfile(image_file):
         raise ValueError('image file does not exist: {}'.format(image_file))
     if label_file is not None and not os.path.isfile(label_file):
@@ -173,9 +148,6 @@ def convert_image_and_label_to_h5(image_file,label_file,out_file,\
     if np.any((np.asarray(I.shape)-np.asarray(L.shape))!=0):
         raise ValueError('image and label have different dimensions!')
         
-    #hx = int(label.shape[0]/2)
-    #hy = int(label.shape[1]/2)
-    #hz = int(label.shape[2]/2)
     if DOWNSAMPLE:
         L = L[::dx,::dy,::dz]
         I = I[::dx,::dy,::dz]
@@ -327,7 +299,7 @@ def convert_image_and_label_to_h5(image_file,label_file,out_file,\
     weights[~MASK] = 0.0 # ignore in cost function but also via label IGNORE_VALUE
     
     # image windowing
-    print('min/max data: {}/{} => {}/{}'.format(np.min(I),np.max(I),win_min,win_max))
+    print('min/max data: {}/{}'.format(np.min(I),np.max(I)))
     I[I<win_min] = win_min
     I[I>win_max] = win_max
     I = I-np.min(I) 
@@ -381,7 +353,7 @@ def convert_image_and_label_to_h5(image_file,label_file,out_file,\
              
     print('...done.')
 
-def deploy(proto_text,trained_model,image,mask,outprefix,device=0):        
+def deploy(proto_text,trained_model,image,mask,outprefix):        
     ############ RUN ###################
     if not os.path.isfile(proto_text):
         raise ValueError('{} does not exist!'.format(proto_text))
@@ -396,14 +368,14 @@ def deploy(proto_text,trained_model,image,mask,outprefix,device=0):
         model_root = os.path.dirname(trained_model)
         trained_model = os.path.basename(trained_model)
     else:
-        model_root = '.'
+        model_root = '.'        
     
     ### MAIN ####
     #mean=(104.00699, 116.66877, 122.67892)
         
     #remove the following two lines if testing with cpu
     caffe.set_mode_gpu()
-    caffe.set_device(device) 
+    caffe.set_device(0) 
     
     # load net
     print("load net from {} ...".format(trained_model))
@@ -631,7 +603,7 @@ def interp3(xrange, yrange, zrange, v, xi, yi, zi, **kwargs):
     Vi = interpolator(pts)
     return np.reshape(Vi, np.shape(xi))        
         
-def predict_file(proto_text,trained_model,infile,output_root,device=0): 
+def predict_file(proto_text,trained_model,infile,output_root): 
     print(100*'=')
     print(100*'=')
     print('DEPLOY CNN...')
@@ -641,7 +613,7 @@ def predict_file(proto_text,trained_model,infile,output_root,device=0):
     mask = infile.replace('.h5','--mask.nii.gz')        
     print(' with image \t{}\n and mask \t{}'.format(image,mask))    
     print('  save to {}*'.format(outprefix))        
-    out_prediction_file, PRED = deploy(proto_text,trained_model,image,mask,outprefix,device)
+    out_prediction_file, PRED = deploy(proto_text,trained_model,image,mask,outprefix)
     return out_prediction_file, PRED
 
 def resample_and_save_raw(PRED,orig_size,orig_spacing,raw_name,method="nearest"):
@@ -656,7 +628,7 @@ def resample_and_save_raw(PRED,orig_size,orig_spacing,raw_name,method="nearest")
                    method=method)     
     mori.write_mori(np.asarray(np.transpose(PRED,(1,0,2)),dtype=np.uint8),orig_spacing,raw_name,use_gzip=True)    
         
-def deploy_cascade(img_file,label_file=None,output_root='/tmp',device=0):
+def deploy_cascade(img_file,label_file=None,output_root='/tmp'):
     basename = os.path.splitext(os.path.basename(img_file))[0]
     output_root = os.path.join(output_root,basename)
     output_root1 = os.path.join(output_root,basename+'_stage1')   
@@ -673,8 +645,8 @@ def deploy_cascade(img_file,label_file=None,output_root='/tmp',device=0):
         
     # Stage 1
     start = time.time()        
-    convert_image_and_label_to_h5(img_file,label_file,h5file1,None,0,win_min1,win_max1,ZERO_MEAN1,NORM1)    
-    prediction_file1, PRED = predict_file(proto_text1,trained_model1,h5file1,output_root1,device)
+    convert_image_and_label_to_h5(img_file,label_file,h5file1)    
+    prediction_file1, PRED = predict_file(proto_text,trained_model1,h5file1,output_root1)
     end = time.time()
     time1 = end - start
     # resample to original size and save in mori formal
@@ -683,8 +655,8 @@ def deploy_cascade(img_file,label_file=None,output_root='/tmp',device=0):
     
     # Stage 2
     start = time.time()        
-    convert_image_and_label_to_h5(img_file,label_file,h5file2,prediction_file1,DILATE_MASK_TO_INCLUDE,win_min2,win_max2,ZERO_MEAN2,NORM2)
-    prediction_file2, PRED = predict_file(proto_text2,trained_model2,h5file2,output_root2,device)
+    convert_image_and_label_to_h5(img_file,label_file,h5file2,prediction_file1,DILATE_MASK_TO_INCLUDE)        
+    prediction_file2, PRED = predict_file(proto_text,trained_model2,h5file2,output_root2)
     end = time.time()
     time2 = end - start
     # resample to original size and save in mori formal

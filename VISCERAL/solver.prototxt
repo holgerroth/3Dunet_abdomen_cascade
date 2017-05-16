@@ -1,0 +1,13 @@
+#The names should be adapted accordingly.
+
+net: 'models/3dUnet_Visceral_with_BN.prototxt'
+momentum:      0.99
+lr_policy:     "step"
+base_lr: 0.01
+max_iter:      1000000
+stepsize:      20000
+display:       1
+snapshot:      5000
+snapshot_prefix: 'snapshots/3dUnet_Visceral_with_BN'
+solver_mode:   GPU
+debug_info:    0

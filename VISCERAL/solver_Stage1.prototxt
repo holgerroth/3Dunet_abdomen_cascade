@@ -1,0 +1,18 @@
+#The names should be adapted accordingly.
+
+net: 'models/3dUnet_Visceral_with_BN.prototxt'
+momentum:      0.99
+base_lr:       0.001 # original lr
+#base_lr:       0.0001 # Fine-tune use smaller lr???
+lr_policy:     "step"
+gamma:         0.1
+power: 0.9
+max_iter:      1000000
+stepsize:      30000
+display:       1
+snapshot:      10000
+#snapshot:      5
+snapshot_prefix: 'snapshots-Stage2/3dUnet_Visceral_with_BN_abd-finetune-Stage2'
+solver_mode:   GPU
+#solver_mode:   CPU
+debug_info:    0

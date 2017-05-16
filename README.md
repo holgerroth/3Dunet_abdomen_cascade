@@ -26,4 +26,10 @@ win_min/max1/2 in deploy_cascade.py if your images are in Hounsfield units.
 For training, please follow the 3D U-Net instruction.
 prepare_data.py can be useful for converting nifti images and label images to h5 containers which can be read by caffe.
 
+# Visceral model
+We also provide a model fine-tuned from the abdominal model based on the VISCERAL data set [1]. All related code and models are provided in the "VISCERAL" subfolder. This folder also contains *.sh scripts for fine-tuning the different stages of the cascade. train.sh is for training the model from scratch. The data list files in models/3dUnet_Visceral_with_BN.prototxt need to be updated accordingly.
+For more details, please refer to VISCERAL/JAMIT2017_rothhr_manuscript.pdf
+
 Please contact Holger Roth (rothhr@mori.m.is.nagoya-u.ac.jp) for any questions.
+
+[1] Jimenez-del-Toro, O., Müller, H., Krenn, M., Gruenberg, K., Taha, A. A., Winterstein, M., et al. Kontokotsios, G. (2016). Cloud-based evaluation of anatomical structure segmentation and landmark detection algorithms: VISCERAL anatomy benchmarks. IEEE Transactions Imaging, 35(11), 2459-2475. (http://www.visceral.eu/benchmarks/anatomy3-open/)
