@@ -1,10 +1,10 @@
 #Stage1:
-#/media/rothhr/SSD/Visceral/Data_visceral-normed-down2_TRAIN.list
+#VISCERAL/Data_visceral-normed-down2_TRAIN.list
 #Stage2:
-#/media/rothhr/SSD/Visceral/Data_Visceral-normed-down2-Stage2_dilGT5_TRAIN.list
+#VISCERAL/Data_Visceral-normed-down2-Stage2_dilGT5_TRAIN.list
 name: '3dUnet_Visceral_with_BN'
 force_backward: true
-layer { top: 'data' top: 'label' top: 'weights' name: 'loaddata'       type: 'HDF5Data'  hdf5_data_param { source: '/media/rothhr/SSD/Visceral/Data_Visceral-normed-down2-Stage2_dilGT5_TRAIN.list' batch_size: 1 shuffle: true} include: { phase: TRAIN }}
+layer { top: 'data' top: 'label' top: 'weights' name: 'loaddata'       type: 'HDF5Data'  hdf5_data_param { source: 'VISCERAL/Data_visceral-normed-down2_TRAIN.list' batch_size: 1 shuffle: true} include: { phase: TRAIN }}
        
 layer { type: 'CreateDeformation'
         bottom: 'label' # to compare labels with ignore label
