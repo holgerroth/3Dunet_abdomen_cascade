@@ -22,6 +22,7 @@ from data import recursive_glob, recursive_glob2
 images_with_no_labels = []
 images = recursive_glob(img_dir,img_search)
 
+#DEVICE=None # CPU only mode
 DEVICE=0
 for image in images:
     basename = os.path.splitext(os.path.basename(image))[0]
