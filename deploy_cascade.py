@@ -399,19 +399,17 @@ def deploy(proto_text,trained_model,image,mask,outprefix,device=0):
         model_root = '.'
     
     ### MAIN ####
-    #mean=(104.00699, 116.66877, 122.67892)
-        
-    #remove the following two lines if testing with cpu
-    if device is not None:
-        caffe.set_mode_gpu()
-        caffe.set_device(device) 
-    else:
-        caffe.set_mode_cpu() 
-        print('WARNING: CPU only mode is used. This will be slow...')
-    
     # load net
     print("load net from {} ...".format(trained_model))
     net = caffe.Net(proto_text, model_root+'/'+trained_model, caffe.TEST)
+
+    if device is not None:
+        caffe.set_mode_gpu()
+        caffe.set_device(device) 
+        print('GPU {} is used...'.format(device))
+    else:
+        caffe.set_mode_cpu() 
+        print('WARNING: CPU only mode is used. This will be slow...')
     
     print('net.inputs[0] = ',net.inputs[0])
     print('net.inputs[1] = ',net.inputs[1])
