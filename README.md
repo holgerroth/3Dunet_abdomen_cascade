@@ -26,7 +26,7 @@ win_min/max1/2 in deploy_cascade.py if your images are in Hounsfield units.
 For training, please follow the 3D U-Net instruction.
 prepare_data.py can be useful for converting nifti images and label images to h5 containers which can be read by caffe.
 
-Reference:
+# Reference
 Roth, Holger R., Hirohisa Oda, Xiangrong Zhou, Natsuki Shimizu, Ying Yang, Yuichiro Hayashi, Masahiro Oda, Michitaka Fujiwara, Kazunari Misawa, and Kensaku Mori. "An application of cascaded 3D fully convolutional networks for medical image segmentation." Computerized Medical Imaging and Graphics 66 (2018): 90-99.
 https://arxiv.org/pdf/1803.05431.pdf
 
